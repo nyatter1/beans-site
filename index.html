@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beans' Casino Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Custom scrollbar for the chat */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; 
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.4s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 h-screen flex overflow-hidden font-sans">
+
+    <!-- Sidebar -->
+    <div class="w-64 bg-gray-900 border-r border-gray-700 flex flex-col shadow-xl z-10 hidden md:flex">
+        <div class="p-4 border-b border-gray-700 flex items-center space-x-3">
+            <div class="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-xl">
+                <i class="fas fa-dice"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg text-white">Casino Bot</h1>
+                <span class="text-xs text-green-400">● Online</span>
+            </div>
+        </div>
+        
+        <div class="p-6 flex-1 flex flex-col items-center justify-start space-y-4">
+            <div class="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center text-4xl shadow-lg border-4 border-gray-800 relative overflow-hidden group cursor-pointer" id="pfp-container" title="Click to change PFP">
+                <img id="user-pfp" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fff'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i class="fas fa-camera text-white mb-1"></i>
+                    <span class="text-[10px] text-white">Upload</span>
+                </div>
+                <div class="absolute bottom-0 right-0 w-6 h-6 bg-green-500 border-2 border-gray-800 rounded-full z-10"></div>
+                <input type="file" id="pfp-upload" class="hidden" accept="image/*">
+            </div>
+            <div class="text-center">
+                <h2 class="text-2xl font-bold text-white">Beans</h2>
+                <p class="text-gray-400 text-sm">VIP Gambler</p>
+            </div>
+            
+            <div class="w-full bg-gray-800 rounded-xl p-4 mt-4 border border-gray-700 shadow-inner text-center">
+                <p class="text-gray-400 text-xs uppercase tracking-wider mb-1">Current Balance</p>
+                <p class="text-3xl font-bold text-yellow-400 flex items-center justify-center">
+                    <i class="fas fa-coins text-yellow-500 mr-2 text-xl"></i>
+                    <span id="balance-display">---</span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Chat Area -->
+    <div class="flex-1 flex flex-col bg-gray-800 relative">
+        
+        <!-- Mobile Header (Visible only on small screens) -->
+        <div class="md:hidden p-3 bg-gray-900 border-b border-gray-700 flex items-center justify-between shadow-md">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center"><i class="fas fa-dice text-sm"></i></div>
+                <span class="font-bold">Casino Bot</span>
+            </div>
+            <div class="flex items-center space-x-2 text-yellow-400 font-bold bg-gray-800 px-3 py-1 rounded-full">
+                <i class="fas fa-coins text-xs"></i>
+                <span id="mobile-balance-display">---</span>
+            </div>
+        </div>
+
+        <!-- Chat History -->
+        <div id="chat-box" class="flex-1 overflow-y-auto p-4 space-y-4">
+            <!-- Messages will be injected here via JS -->
+            <div class="flex justify-center my-4">
+                <span class="text-xs text-gray-500 bg-gray-900 px-3 py-1 rounded-full">Welcome to the Casino, Beans!</span>
+            </div>
+        </div>
+
+        <!-- Chat Input Form -->
+        <div class="p-4 bg-gray-900 border-t border-gray-700">
+            <form id="chat-form" class="flex items-center relative">
+                <input 
+                    type="text" 
+                    id="chat-input" 
+                    autocomplete="off"
+                    placeholder="Type /help for commands..." 
+                    class="flex-1 bg-gray-700 text-gray-100 placeholder-gray-400 rounded-xl py-3 pl-4 pr-12 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow border border-gray-600"
+                >
+                <button type="submit" class="absolute right-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-indigo-600 hover:bg-indigo-500 rounded-lg flex items-center justify-center transition-colors text-white">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Environment Variables Handling
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        
+        let app, auth, db;
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        } catch (e) {
+            console.error("Firebase initialization failed:", e);
+        }
+
+        // State Variables
+        let currentUser = null;
+        let balance = 0;
+        let userPfp = "";
+        let customBots = [];
+        const USERNAME = "Beans";
+        
+        // DOM Elements
+        const chatBox = document.getElementById('chat-box');
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const balanceDisplay = document.getElementById('balance-display');
+        const mobileBalanceDisplay = document.getElementById('mobile-balance-display');
+        const pfpContainer = document.getElementById('pfp-container');
+        const pfpUpload = document.getElementById('pfp-upload');
+        const userPfpImg = document.getElementById('user-pfp');
+
+        const getDefaultPfp = () => "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fff'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
+
+        // --- PFP UPLOAD LOGIC ---
+        pfpContainer.addEventListener('click', () => pfpUpload.click());
+        pfpUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 150; canvas.height = 150;
+                    
+                    const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+                    const x = (canvas.width / scale - img.width) / 2;
+                    const y = (canvas.height / scale - img.height) / 2;
+                    ctx.drawImage(img, x, y, img.width, img.height, 0, 0, img.width * scale, img.height * scale);
+                    
+                    userPfp = canvas.toDataURL('image/jpeg', 0.8);
+                    userPfpImg.src = userPfp;
+                    saveData(); 
+                    appendMessage('Casino Bot', 'Profile picture successfully updated and saved!', 'bot');
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // --- AUTHENTICATION & DATA SETUP ---
+        const initAuth = async () => {
+            if (!auth) return;
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.error("Auth error:", err);
+                appendMessage('System', 'Failed to connect to the casino server. Error: ' + err.message, 'error');
+            }
+        };
+
+        if (auth) initAuth();
+
+        if (auth) {
+            const unsubscribe = onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    currentUser = user;
+                    setupDataListener(user.uid);
+                }
+            });
+        } else {
+            appendMessage('System', 'Running in local fallback mode. Data will reset on reload.', 'warning');
+            balance = 1000;
+            updateBalanceUI();
+            appendMessage('Casino Bot', 'Connected! Type `/help` to view available commands.', 'bot');
+        }
+
+        function setupDataListener(uid) {
+            const docRef = doc(db, 'artifacts', appId, 'users', uid, 'gambling_data', 'profile');
+            
+            onSnapshot(docRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.data();
+                    balance = data.balance !== undefined ? data.balance : 1000;
+                    userPfp = data.pfp || "";
+                    if(userPfp) userPfpImg.src = userPfp;
+                    customBots = data.bots || [];
+                    updateBalanceUI();
+                } else {
+                    balance = 1000;
+                    saveData();
+                    appendMessage('Casino Bot', `Welcome ${USERNAME}! I've deposited $1,000 into your account. Type \`/help\` to begin.`, 'bot');
+                }
+            }, (error) => {
+                console.error("Firestore error:", error);
+                appendMessage('System', 'Disconnected from data server.', 'error');
+            });
+        }
+
+        async function saveData() {
+            if (!currentUser || !db) return;
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'gambling_data', 'profile');
+            try {
+                await setDoc(docRef, { 
+                    balance: balance,
+                    username: USERNAME,
+                    pfp: userPfp,
+                    bots: customBots
+                }, { merge: true });
+            } catch (err) {
+                console.error("Error saving data:", err);
+            }
+        }
+
+        async function setBalance(newAmount) {
+            balance = newAmount;
+            updateBalanceUI();
+            await saveData();
+        }
+
+        function updateBalanceUI() {
+            const formatted = balance.toLocaleString();
+            balanceDisplay.innerText = formatted;
+            mobileBalanceDisplay.innerText = formatted;
+        }
+
+        // --- BOT ACTIVITY ENGINE ---
+        setInterval(() => {
+            if(customBots.length > 0 && Math.random() < 0.6) { 
+                const botName = customBots[Math.floor(Math.random() * customBots.length)];
+                const actions = ['gamble', 'chat', 'gamble']; 
+                const action = actions[Math.floor(Math.random() * actions.length)];
+                
+                const botPfp = `https://api.dicebear.com/7.x/bottts/svg?seed=${botName.replace(/\s+/g, '')}`; 
+
+                if(action === 'chat') {
+                    const phrases = ["I'm feeling lucky!", "Who wants to bet?", "I just lost so much...", "Beans is the best!", "This casino is rigged! (jk)", "All in next round?", "Someone spot me a few coins?", "My balance is huge right now!"];
+                    const msg = phrases[Math.floor(Math.random() * phrases.length)];
+                    appendMessage(botName, msg, 'user', botPfp);
+                } else {
+                    const betAmt = Math.floor(Math.random() * 500) + 10;
+                    const won = Math.random() < 0.45; // Bots lose slightly more often
+                    
+                    const gameKeys = Object.keys(dynamicCommands);
+                    gameKeys.push('/allin', '/dice', '/flip');
+                    const game = gameKeys[Math.floor(Math.random() * gameKeys.length)];
+                    
+                    const amount = won ? Math.floor(betAmt * (Math.random() * 2 + 1)) : betAmt;
+                    appendGambleResult(botPfp, botName, game, won ? 'WON' : 'LOST', amount);
+                }
+            }
+        }, 8000); // Trigger every 8 seconds
+
+        // --- DYNAMIC COMMAND GENERATOR (300+ COMMANDS) ---
+        const generateCommands = () => {
+            const cmds = {};
+            const items = ["dog","cat","horse","dragon","unicorn","fish","shark","eagle","lion","tiger","bear","wolf","fox","snake","spider","scorpion","alien","robot","ninja","pirate", "diamond","ruby","sapphire","emerald","gold","silver","bronze","iron","wood","stone","apple","banana","orange","grape","melon","cherry","peach","plum","kiwi","mango", "car","bike","boat","plane","train","rocket","ufo","tank","mech","sub", "fire","water","earth","air","light","dark","lightning","ice","poison","magic"];
+            const actions = ["bet", "hunt", "mine", "explore", "summon"];
+            
+            actions.forEach(action => {
+                items.forEach(item => {
+                    cmds[`/${action}${item}`] = async (args) => {
+                        if(args.length < 1) {
+                             appendMessage('Casino Bot', `Usage: /${action}${item} <amount>`, 'error');
+                             return;
+                        }
+                        const validBet = validateBet(args[0]);
+                        if(!validBet) return;
+                        
+                        const win = Math.random() < 0.48; 
+                        const multiplier = (Math.random() * 1.5 + 0.5).toFixed(1);
+                        const winAmt = Math.floor(validBet * multiplier);
+                        
+                        if (win) {
+                            await setBalance(balance + winAmt);
+                            appendGambleResult(userPfp || getDefaultPfp(), USERNAME, `/${action}${item}`, 'WON', winAmt);
+                        } else {
+                            await setBalance(balance - validBet);
+                            appendGambleResult(userPfp || getDefaultPfp(), USERNAME, `/${action}${item}`, 'LOST', validBet);
+                        }
+                    };
+                });
+            });
+            return cmds;
+        };
+        const dynamicCommands = generateCommands();
+
+        // --- CHAT UI LOGIC ---
+        function appendMessage(sender, text, type = 'user', pfpOverride = null, isRawHtml = false) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = "flex w-full mt-2 space-x-3 max-w-2xl " + (type === 'user' ? "ml-auto justify-end animate-fade-in-up" : "animate-fade-in-up");
+            
+            let bubbleColor = "bg-gray-700 text-white";
+            let avatarHtml = `<div class="w-8 h-8 rounded-full bg-blue-600 flex-shrink-0 flex items-center justify-center text-white"><i class="fas fa-user"></i></div>`;
+            
+            if (pfpOverride) {
+                avatarHtml = `<div class="w-8 h-8 rounded-full flex-shrink-0 border border-gray-600 overflow-hidden bg-gray-800"><img src="${pfpOverride}" class="w-full h-full object-cover"></div>`;
+            } else if (type === 'user' && userPfp && sender === USERNAME) {
+                avatarHtml = `<div class="w-8 h-8 rounded-full flex-shrink-0 border border-gray-600 overflow-hidden bg-gray-800"><img src="${userPfp}" class="w-full h-full object-cover"></div>`;
+            } else if (type === 'bot') {
+                bubbleColor = "bg-indigo-600 text-white";
+                avatarHtml = `<div class="w-8 h-8 rounded-full bg-indigo-500 flex-shrink-0 flex items-center justify-center text-white"><i class="fas fa-dice"></i></div>`;
+            } else if (type === 'error' || type === 'warning') {
+                bubbleColor = "bg-yellow-600 text-white";
+                avatarHtml = `<div class="w-8 h-8 rounded-full bg-yellow-500 flex-shrink-0 flex items-center justify-center text-white"><i class="fas fa-exclamation-triangle"></i></div>`;
+            }
+
+            const content = isRawHtml ? text : `<div class="${bubbleColor} rounded-2xl ${type === 'user' ? 'rounded-tr-sm' : 'rounded-tl-sm'} px-4 py-2 shadow-md">${text}</div>`;
+
+            if (type === 'user') {
+                msgDiv.innerHTML = `
+                    <div class="flex flex-col items-end">
+                        <span class="text-xs text-gray-400 mb-1">${sender}</span>
+                        ${content}
+                    </div>
+                    ${avatarHtml}
+                `;
+            } else {
+                msgDiv.innerHTML = `
+                    ${avatarHtml}
+                    <div class="flex flex-col items-start">
+                        <span class="text-xs text-gray-400 mb-1">${sender}</span>
+                        ${content}
+                    </div>
+                `;
+            }
+
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // --- AMAZING GAMBLING UI ---
+        function appendGambleResult(pfp, username, cmdName, resultType, amount) {
+            const isWin = resultType === 'WON';
+            const resultColor = isWin ? 'text-green-500' : 'text-red-500';
+            const borderColor = isWin ? 'border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.2)]' : 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.2)]';
+            const sign = isWin ? '+' : '-';
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = "flex w-full mt-4 mb-4 justify-center animate-fade-in-up";
+            msgDiv.innerHTML = `
+                <div class="flex flex-col items-center bg-gray-800 border-2 ${borderColor} rounded-2xl p-5 w-64 transform transition-all hover:scale-105 relative overflow-hidden">
+                    <div class="absolute inset-0 opacity-10 bg-gradient-to-b ${isWin ? 'from-green-500' : 'from-red-500'} to-transparent pointer-events-none"></div>
+                    <div class="relative w-16 h-16 mb-2 rounded-full border-4 ${isWin ? 'border-green-600' : 'border-red-600'} shadow-lg overflow-hidden bg-gray-900 z-10">
+                        <img src="${pfp}" class="w-full h-full object-cover">
+                    </div>
+                    <span class="font-black text-white text-lg tracking-wide uppercase z-10">${username}</span>
+                    <span class="text-xs text-gray-400 font-medium mb-3 bg-gray-900 px-3 py-1 rounded-full mt-1 border border-gray-700 z-10">did ${cmdName}</span>
+                    <div class="text-4xl font-black ${resultColor} mb-1 tracking-wider z-10" style="text-shadow: 0 2px 10px rgba(0,0,0,0.5);">
+                        ${resultType}
+                    </div>
+                    <div class="text-2xl font-bold ${isWin ? 'text-yellow-400' : 'text-gray-400'} flex items-center z-10">
+                        ${sign}$${amount.toLocaleString()}
+                    </div>
+                </div>
+            `;
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // --- COMMAND LOGIC ---
+        function parseCommand(input) {
+            const args = input.trim().split(/\s+/);
+            const cmd = args.shift().toLowerCase();
+            return { cmd, args };
+        }
+
+        function validateBet(betStr) {
+            const bet = parseInt(betStr);
+            if (isNaN(bet) || bet <= 0) {
+                appendMessage('Casino Bot', 'Invalid bet amount! Please enter a valid number greater than 0.', 'error');
+                return null;
+            }
+            if (bet > balance) {
+                appendMessage('Casino Bot', `You don't have enough coins! Your balance is $${balance.toLocaleString()}`, 'error');
+                return null;
+            }
+            return bet;
+        }
+
+        async function handleCommand(commandLine) {
+            const { cmd, args } = parseCommand(commandLine);
+
+            if (cmd === '/help') {
+                appendMessage('Casino Bot', `
+                    <div class="text-center space-y-2 bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-lg">
+                        <div class="font-black text-xl text-indigo-400 mb-2 border-b border-gray-700 pb-2"><i class="fas fa-scroll"></i> CASINO COMMANDS</div>
+                        
+                        <div class="grid grid-cols-2 gap-2 text-left mt-2">
+                            <div class="bg-gray-900 p-2 rounded"><span class="text-yellow-400 font-bold">/balance</span><br><span class="text-xs text-gray-400">Check funds</span></div>
+                            <div class="bg-gray-900 p-2 rounded"><span class="text-yellow-400 font-bold">/allin</span><br><span class="text-xs text-gray-400">Risk everything</span></div>
+                            <div class="bg-gray-900 p-2 rounded"><span class="text-yellow-400 font-bold">/dice &lt;amt&gt;</span><br><span class="text-xs text-gray-400">Roll 1-6</span></div>
+                            <div class="bg-gray-900 p-2 rounded"><span class="text-yellow-400 font-bold">/beg</span><br><span class="text-xs text-gray-400">Get free coins</span></div>
+                        </div>
+
+                        <div class="bg-gray-900 p-3 rounded-lg text-left mt-2 border-l-4 border-blue-500">
+                            <span class="text-blue-400 font-bold block mb-1"><i class="fas fa-robot"></i> Bot System</span>
+                            <span class="text-xs text-gray-300 block"><b>/createbot &lt;name&gt;</b> - Spawns active AI</span>
+                            <span class="text-xs text-gray-300 block"><b>/deletebot &lt;name&gt;</b> - Removes AI</span>
+                            <span class="text-xs text-gray-300 block"><b>/bots</b> - List active AIs</span>
+                        </div>
+
+                        <div class="bg-gray-900 p-3 rounded-lg text-left mt-2 border-l-4 border-purple-500">
+                            <span class="text-purple-400 font-bold block mb-1"><i class="fas fa-gamepad"></i> Dynamic Games (300+)</span>
+                            <span class="text-xs text-gray-300 block mb-1">Combine an action: <b>/bet, /hunt, /mine, /explore, /summon</b></span>
+                            <span class="text-xs text-gray-300 block">With 60+ items: <b>dog, dragon, gold, fire, robot, etc.</b></span>
+                            <span class="text-xs text-gray-500 italic mt-1 block bg-black bg-opacity-50 p-1 rounded">Example: /betdragon 50, /minegold 100</span>
+                        </div>
+                        
+                        <div class="text-xs text-green-400 mt-3 font-bold bg-gray-900 py-1 rounded"><i class="fas fa-image"></i> Click your profile picture to upload a custom PFP!</div>
+                    </div>
+                `, 'bot', null, true);
+                return;
+            }
+
+            switch (cmd) {
+                case '/createbot':
+                    if(args.length === 0) return appendMessage('Casino Bot', 'Usage: /createbot <name>', 'error');
+                    const name = args.join(' ').substring(0, 15);
+                    if(customBots.includes(name)) return appendMessage('Casino Bot', 'Bot already exists!', 'error');
+                    customBots.push(name);
+                    saveData();
+                    appendMessage('Casino Bot', `🤖 Bot <b>${name}</b> has joined the casino! They will now chat and gamble periodically.`, 'bot');
+                    break;
+                    
+                case '/deletebot':
+                    if(args.length === 0) return appendMessage('Casino Bot', 'Usage: /deletebot <name>', 'error');
+                    const delName = args.join(' ');
+                    const index = customBots.indexOf(delName);
+                    if(index === -1) return appendMessage('Casino Bot', 'Bot not found!', 'error');
+                    customBots.splice(index, 1);
+                    saveData();
+                    appendMessage('Casino Bot', `👋 Bot <b>${delName}</b> was kicked from the casino.`, 'bot');
+                    break;
+                    
+                case '/bots':
+                    if(customBots.length === 0) return appendMessage('Casino Bot', 'No active bots. Create one with /createbot <name>', 'bot');
+                    appendMessage('Casino Bot', `<b>Active Bots (${customBots.length}):</b><br>${customBots.join(', ')}`, 'bot');
+                    break;
+
+                case '/balance':
+                case '/bal':
+                    appendMessage('Casino Bot', `You currently have <b>$${balance.toLocaleString()}</b> coins.`, 'bot');
+                    break;
+
+                case '/dice':
+                    if (args.length < 1) {
+                        appendMessage('Casino Bot', 'Usage: /dice &lt;amount&gt;', 'error');
+                        return;
+                    }
+                    const diceBet = validateBet(args[0]);
+                    if (!diceBet) return;
+
+                    const roll = Math.floor(Math.random() * 6) + 1;
+                    if (roll >= 4) {
+                        await setBalance(balance + diceBet);
+                        appendGambleResult(userPfp || getDefaultPfp(), USERNAME, `/dice (rolled ${roll})`, 'WON', diceBet);
+                    } else {
+                        await setBalance(balance - diceBet);
+                        appendGambleResult(userPfp || getDefaultPfp(), USERNAME, `/dice (rolled ${roll})`, 'LOST', diceBet);
+                    }
+                    break;
+
+                case '/flip':
+                case '/coinflip':
+                    if (args.length < 2) {
+                        appendMessage('Casino Bot', 'Usage: /flip &lt;heads/tails&gt; &lt;amount&gt;', 'error');
+                        return;
+                    }
+                    const choice = args[0].toLowerCase();
+                    if (choice !== 'heads' && choice !== 'tails') {
+                        appendMessage('Casino Bot', 'You must pick either "heads" or "tails"!', 'error');
+                        return;
+                    }
+                    const flipBet = validateBet(args[1]);
+                    if (!flipBet) return;
+
+                    const result = Math.random() < 0.5 ? 'heads' : 'tails';
+                    if (choice === result) {
+                        await setBalance(balance + flipBet);
+                        appendGambleResult(userPfp || getDefaultPfp(), USERNAME, `/flip (${result})`, 'WON', flipBet);
+                    } else {
+                        await setBalance(balance - flipBet);
+                        appendGambleResult(userPfp || getDefaultPfp(), USERNAME, `/flip (${result})`, 'LOST', flipBet);
+                    }
+                    break;
+
+                case '/allin':
+                    if (balance <= 0) {
+                        appendMessage('Casino Bot', 'You have nothing to bet! Type /beg to get some change.', 'error');
+                        return;
+                    }
+                    const allInBet = balance;
+                    const allInWin = Math.random() < 0.5;
+                    
+                    if (allInWin) {
+                        await setBalance(balance * 2);
+                        appendGambleResult(userPfp || getDefaultPfp(), USERNAME, '/allin (🔥 LUCK! 🔥)', 'WON', allInBet);
+                    } else {
+                        await setBalance(0);
+                        appendGambleResult(userPfp || getDefaultPfp(), USERNAME, '/allin (💀 RIP 💀)', 'LOST', allInBet);
+                    }
+                    break;
+                    
+                case '/beg':
+                    if (balance > 100) {
+                        appendMessage('Casino Bot', `You have $${balance.toLocaleString()}! You aren't poor enough to beg!`, 'error');
+                    } else {
+                        const handout = Math.floor(Math.random() * 200) + 50;
+                        await setBalance(balance + handout);
+                        appendMessage('Casino Bot', `🥺 A pitying passerby threw you <b>$${handout}</b>. Don't spend it all in one place!`, 'bot');
+                    }
+                    break;
+
+                default:
+                    if (dynamicCommands[cmd]) {
+                        await dynamicCommands[cmd](args);
+                    } else {
+                        appendMessage('Casino Bot', `Unknown command: ${cmd}. Type /help for a list of commands.`, 'error');
+                    }
+            }
+        }
+
+        // --- EVENT LISTENERS ---
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const inputVal = chatInput.value.trim();
+            if (!inputVal) return;
+            
+            appendMessage(USERNAME, inputVal, 'user');
+            chatInput.value = '';
+
+            if (inputVal.startsWith('/')) {
+                setTimeout(() => handleCommand(inputVal), 400);
+            } else {
+                setTimeout(() => {
+                    appendMessage('Casino Bot', "I only respond to commands! Try typing `/help`.", 'bot');
+                }, 500);
+            }
+        });
+
+        // Initialize display
+        updateBalanceUI();
+
+    </script>
+</body>
+</html>
